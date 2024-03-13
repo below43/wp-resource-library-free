@@ -1,8 +1,13 @@
 # wp-simple-resource-library
 A simple, free, resource library plugin for Wordpress
 
+## Installation
 
-## Setup
+1. Download the plugin from the GitHub repository.
+2. Upload the plugin to the `/wp-content/plugins/` directory of your WordPress installation.
+3. Activate the plugin through the 'Plugins' menu in WordPress.
+
+## Usage
 
 ### Slug
 Make sure the "resources" slug is free for this plugin to use.
@@ -19,7 +24,7 @@ After creating this file, WordPress should use it to display your 'resource' cus
 ### Resource library page
 This plugin supports having a library page that will fetch the resources and display them in a table. It also supports filtering by category and includes a search form.
 
-You can use the shortcode like this: [display_resources_table] or with a category filter like this: [display_resources_table category="category-slug"]. Replace "category-slug" with the actual slug of the category you want to filter by. 
+You can use the shortcode like this: `[display_resources_table]` or with a category filter like this: `[display_resources_table category="category-slug"]`. Replace "category-slug" with the actual slug of the category you want to filter by. 
 
 You may want to hide some columns column on mobile
 
@@ -40,3 +45,17 @@ You may want to hide some columns column on mobile
 	
 }
 ```
+
+
+## Changelog
+
+### 1.0
+- Initial release
+
+## Contributing
+
+Contributions are welcome! To contribute, fork the repository, make your changes, and submit a pull request.
+
+## License
+
+This project is licensed under the terms of the MIT license. For more information, see the `LICENSE` file in the project directory.
