@@ -84,6 +84,11 @@ function audit_log_meta_box_markup($object)
 	<br />
 	<br />
 
+	<label for="last-updated">Version</label><br />
+	<input name="version" type="text" value="<?php echo esc_html(get_post_meta($object->ID, "version", true)); ?>">
+	<br />
+	<br />
+
 	<label for="last-review-date">Last Date of Review</label><br />
 	<input name="last-review-date" type="date" value="<?php echo esc_html(get_post_meta($object->ID, "last-review-date", true)); ?>">
 	<br />
@@ -94,7 +99,7 @@ function audit_log_meta_box_markup($object)
 	<br />
 	<br />
 
-	<label for="repealed-policies">Changelog</label><br />
+	<label for="repealed-policies">Revisions</label><br />
 	<textarea name="changes" rows="5" class="large-text"><?php echo esc_html(get_post_meta($object->ID, "changelog", true)); ?></textarea><br />
 	eg. major changes, repealed policies, etc.
 	<br />
@@ -106,7 +111,7 @@ function save_resource_metadata($post_id, $post, $update)
 {
 	$meta_boxes = array(
 		'resource-details' => array('resource-url', 'embed-code'),
-		'audit-log' => array('created', 'last-updated', 'last-review-date', 'next-review-date', 'changelog'),
+		'audit-log' => array('created', 'last-updated', 'version', 'last-review-date', 'next-review-date', 'changelog'),
 	);
 
 	if (!current_user_can("edit_post", $post_id))
@@ -203,14 +208,13 @@ function display_resource_shortcode($atts)
 	$url = get_post_meta(get_the_ID(), 'resource-url', true);
 	if (!empty($url)) {
 		echo '<p><a class="button" href="' . esc_html($url) . '" target="_blank">Open this resource</a></p>';
-	}
-	else 
-	{
+	} else {
 		echo '<p>No URL provided for this resource.</p>';
 	}
 
 	$created = get_post_meta(get_the_ID(), 'created', true);
 	$last_updated = get_post_meta(get_the_ID(), 'last-updated', true);
+	$version = get_post_meta(get_the_ID(), 'version', true);
 	$last_review_date = get_post_meta(get_the_ID(), 'last-review-date', true);
 	$next_review_date = get_post_meta(get_the_ID(), 'next-review-date', true);
 	$changelog = get_post_meta(get_the_ID(), 'changelog', true);
@@ -224,6 +228,9 @@ function display_resource_shortcode($atts)
 			<?php if (!empty($last_updated)) : ?>
 				<p>Last Updated: <?php echo esc_html($last_updated); ?></p>
 			<?php endif; ?>
+			<?php if (!empty($version)) : ?>
+				<p>Version: <?php echo esc_html($version); ?></p>
+			<?php endif; ?>
 			<?php if (!empty($last_review_date)) : ?>
 				<p>Last Date of Review: <?php echo esc_html($last_review_date); ?></p>
 			<?php endif; ?>
@@ -231,10 +238,10 @@ function display_resource_shortcode($atts)
 				<p>Next Date of Review: <?php echo esc_html($next_review_date); ?></p>
 			<?php endif; ?>
 			<?php if (!empty($changelog)) : ?>
-				<p>Changelog: <?php echo esc_html($changelog); ?></p>
+				<p>Revisions: <?php echo esc_html($changelog); ?></p>
 			<?php endif; ?>
 		</div>
-<?php endif;
+	<?php endif;
 
 	wp_reset_postdata();
 
@@ -250,3 +257,145 @@ function include_resources_in_category_pages($query)
 	}
 }
 add_action('pre_get_posts', 'include_resources_in_category_pages');
+
+function generate_table_url($params)
+{
+	return esc_url(add_query_arg($params, $_SERVER['REQUEST_URI']));
+}
+
+function generate_table_header($sortby, $sortorder, $category_name, $column_name, $display_name)
+{
+	$class = $sortby == $column_name ? 'active-sort' : '';
+	$class = $class . ' ' . $column_name;
+	$order = $sortby == $column_name && $sortorder == 'ASC' ? 'desc' : 'asc';
+	$arrow = $sortby == $column_name ? ($sortorder == 'ASC' ? '↑' : '↓') : '';
+	$url = generate_table_url(array('sortby' => $column_name, 'sortorder' => $order, 'category' => urlencode($category_name)));
+
+	return "<th class=\"$class\"><a href=\"$url\">$display_name $arrow</a></th>";
+}
+
+function display_resources_table_shortcode($atts)
+{
+	// Extract the attributes
+	$atts = shortcode_atts(
+		array(
+			'category' => '', // Default value
+		),
+		$atts,
+		'display_resources_table_shortcode'
+	);
+
+	// If a category is specified in the shortcode, or GET params, add it to the query args
+	$category_name = (!empty($atts['category'])) ? $atts['category'] : sanitize_text_field($_GET['category']);
+
+	// If a search term is submitted, add it to the query args
+	$search_term = isset($_GET['resource_search_term']) ? sanitize_text_field($_GET['resource_search_term']) : '';
+
+	// Capture the selected option
+	$sortby = isset($_GET['sortby']) ? sanitize_text_field($_GET['sortby']) : 'title';
+	$sortorder = isset($_GET['sortorder']) && strtolower(sanitize_text_field($_GET['sortorder'])) == 'desc' ? 'DESC' : 'ASC';
+
+	$args = array(
+		'post_type' => 'resource',
+		'posts_per_page' => -1, // Get all posts
+		'orderby'   => $sortby,
+		'order'     => $sortorder,
+		'category_name' => $category_name,
+		's' => $search_term,
+	);
+
+	$query = new WP_Query($args);
+
+	ob_start();
+
+	// Display the search form
+	?>
+	<br />
+	<form method="get" class="wp-simple-resource-library-search" action="<?php echo esc_url($_SERVER['REQUEST_URI']); ?>">
+		<input type="text" name="resource_search_term" placeholder="Search resources..." value="<?php echo isset($_GET['resource_search_term']) ? esc_attr($_GET['resource_search_term']) : ''; ?>">
+		<input type="submit" value="Search">
+	</form>
+	<?php
+
+	// Display the active category and a "X" to clear the category filter, but only if the shortcode isn't filtering by default
+	if (empty($atts['category'])) {
+		$category_obj = get_category_by_slug($category_name);
+		$category_display_name = is_object($category_obj) ? $category_obj->name : $category_name;
+		echo '<p class="active-category-filter">';
+		echo 'Category: ' . esc_html($category_display_name);
+		echo ' <a href="' . esc_url(remove_query_arg('category', $_SERVER['REQUEST_URI'])) . '">X</a>';
+		echo '</p>';
+	}
+	// Display the resources in a table
+	if ($query->have_posts()) {
+	?>
+		<table class="wp-simple-resource-library-results">
+			<thead>
+				<tr>
+					<?php echo generate_table_header($sortby, $sortorder, $category_name, 'title', 'Resource Name'); ?>
+					<th class="excerpt">Summary</th>
+					<?php if (empty($atts['category'])) {
+						echo generate_table_header($sortby, $sortorder, $category_name, 'category', 'Category');
+					} ?>
+					<?php echo generate_table_header($sortby, $sortorder, $category_name, 'date', 'Published'); ?>
+					<th class="last-updated">Last&nbsp;Updated</th>
+					<th class="actions">&nbsp;</th>
+				</tr>
+			</thead>
+			<tbody>
+				<?php
+
+				while ($query->have_posts()) {
+					$query->the_post();
+				?>
+					<tr>
+						<td width="30%" class="title"><?php echo get_the_title(); ?></td>
+						<?php if (empty($atts['category'])) : // Only display the category data if no category is specified in the shortcode 
+						?>
+							<?php
+							$categories = get_the_category();
+							$category_links = array();
+							foreach ($categories as $category) {
+								$category_slug = $category->slug;
+								$url_params = array('sortby' => $sortby, 'sortorder' => $sortorder, 'category' => $category_slug);
+								$category_links[] = '<a href="' . generate_table_url($url_params) . '">' . $category->name . '</a>';
+							}
+							?>
+							<td><?php echo implode(', ', $category_links); ?></td>
+						<?php endif; ?>
+						<td class="excerpt"><?php echo wp_trim_words(get_the_excerpt(), 20, '...'); ?></td>
+						<td nowrap class="date"><?php echo get_the_date(); ?></td>
+						<td nowrap class="last-updated">
+							<?php
+							$last_updated = get_post_meta(get_the_ID(), 'last-updated', true);
+							$created = get_post_meta(get_the_ID(), 'created', true);
+							$date = $last_updated ? $last_updated : ($created ? $created : '');
+							$date_formatted = '';
+							if ($date) {
+								//convert from iso to standard wordpress date output format  (as definted in wordpress settings)
+								$date_formatted = date_i18n(get_option('date_format'), strtotime($date));
+							}
+							echo $date_formatted ? $date_formatted : '-';
+							?>
+						</td>
+						<td nowrap class="actions"><a href="<?php echo get_permalink(); ?>">View more</a></td>
+					</tr>
+				<?php
+
+				}
+
+				?>
+			</tbody>
+		</table>
+<?php
+
+	} else {
+		echo '<p>No resources found.</p>';
+	}
+
+	wp_reset_postdata();
+
+	return ob_get_clean();
+}
+
+add_shortcode('display_resources_table', 'display_resources_table_shortcode');
