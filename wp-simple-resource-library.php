@@ -253,7 +253,14 @@ add_shortcode('display_resource', 'display_resource_shortcode');
 function include_resources_in_category_pages($query)
 {
 	if ($query->is_category() && $query->is_main_query()) {
-		$query->set('post_type', array('post', 'resource'));
+		
+        $post_types = $query->get('post_type');
+        if (is_array($post_types)) {
+            $post_types[] = 'resource';
+        } else {
+            $post_types = array('post', 'resource');
+        }
+        $query->set('post_type', $post_types);
 	}
 }
 add_action('pre_get_posts', 'include_resources_in_category_pages');
@@ -318,7 +325,7 @@ function display_resources_table_shortcode($atts)
 	<?php
 
 	// Display the active category and a "X" to clear the category filter, but only if the shortcode isn't filtering by default
-	if (empty($atts['category'])) {
+	if (empty($atts['category']) && $category_name) {
 		$category_obj = get_category_by_slug($category_name);
 		$category_display_name = is_object($category_obj) ? $category_obj->name : $category_name;
 		echo '<p class="active-category-filter">';
