@@ -57,16 +57,49 @@ function resource_details_meta_box_markup($object)
 	wp_nonce_field(basename(__FILE__), "resource-details-nonce");
 
 ?>
+	<p>A resource can be an uploaded file, a URL (website link), or an embed code (eg. for a video).</p>
+
+
 	<label for="resource-url">Resource URL</label><br />
-	<input name="resource-url" type="text" class="large-text" value="<?php echo esc_html(get_post_meta($object->ID, "resource-url", true)); ?>">
+
+	<i>Paste a link to an external resource (eg. on Google Drive, Dropbox etc.), or select/upload media on this website</i>
+
+	<input name="resource-url" placeholder="https://file-url-goes-here" id="resource-url" type="text" class="large-text" value="<?php echo esc_html(get_post_meta($object->ID, "resource-url", true)); ?>">
 	<br />
 	<br />
+	<button type="button" name="resource-file" id="resource-file">Select / Upload Media</button><br />
+	<br />
+	<br />
+
 	<!--embed code -->
 	<label for="embed-code">Embed Code</label><br />
+	<i>Alternative option to Resource URL eg. YouTube embed code</i>
 	<textarea name="embed-code" rows="5" class="large-text"><?php echo esc_html(get_post_meta($object->ID, "embed-code", true)); ?></textarea>
 	<br />
 	<br />
+
+
+	<script>
+		jQuery(document).ready(function($) {
+			$('#resource-file').click(function(e) {
+				e.preventDefault();
+				var custom_uploader = wp.media({
+						title: 'Select File',
+						button: {
+							text: 'Use this File'
+						},
+						multiple: false // Set this to true to allow multiple files to be selected
+					})
+					.on('select', function() {
+						var attachment = custom_uploader.state().get('selection').first().toJSON();
+						$('#resource-url').val(attachment.url);
+					})
+					.open();
+			});
+		});
+	</script>
 <?php
+
 }
 
 function audit_log_meta_box_markup($object)
@@ -110,7 +143,7 @@ function audit_log_meta_box_markup($object)
 function save_resource_metadata($post_id, $post, $update)
 {
 	$meta_boxes = array(
-		'resource-details' => array('resource-url', 'embed-code'),
+		'resource-details' => array('resource-url', 'embed-code', 'resource-file'),
 		'audit-log' => array('created', 'last-updated', 'version', 'last-review-date', 'next-review-date', 'changelog'),
 	);
 
@@ -131,16 +164,19 @@ function save_resource_metadata($post_id, $post, $update)
 				return $post_id;
 
 			$meta_value = "";
-
-			if (isset($_POST[$field])) {
-				$meta_value = $_POST[$field];
+			if ($field == 'embed-code') {
+				$meta_value = wp_kses_post($_POST[$field]);
+			} else {
+				$meta_value = sanitize_text_field($_POST[$field]);
 			}
+
 			update_post_meta($post_id, $field, $meta_value);
 		}
 	}
 }
 
 add_action("save_post", "save_resource_metadata", 10, 3);
+
 
 function display_resources_item_shortcode($atts)
 {
@@ -198,18 +234,14 @@ function display_resource_shortcode($atts)
 
 	<!-- if this has embed code then output it below -->
 	<?php
-	$embed_code = get_post_meta(get_the_ID(), 'embed-code', true);
-	if (!empty($embed_code)) {
-		echo '<div class="embed-code">' . $embed_code . '</div>';
-	}
-	?>
-
-	<?php
 	$url = get_post_meta(get_the_ID(), 'resource-url', true);
+	$embed_code = get_post_meta(get_the_ID(), 'embed-code', true);
 	if (!empty($url)) {
 		echo '<p><a class="button" href="' . esc_html($url) . '" target="_blank">Open this resource</a></p>';
+	} else if (!empty($embed_code)) {
+		echo '<div class="embed-code">' . $embed_code . '</div>';
 	} else {
-		echo '<p>No URL provided for this resource.</p>';
+		echo '<p>No file provided for this resource.</p>';
 	}
 
 	$created = get_post_meta(get_the_ID(), 'created', true);
@@ -253,14 +285,14 @@ add_shortcode('display_resource', 'display_resource_shortcode');
 function include_resources_in_category_pages($query)
 {
 	if ($query->is_category() && $query->is_main_query()) {
-		
-        $post_types = $query->get('post_type');
-        if (is_array($post_types)) {
-            $post_types[] = 'resource';
-        } else {
-            $post_types = array('post', 'resource');
-        }
-        $query->set('post_type', $post_types);
+
+		$post_types = $query->get('post_type');
+		if (is_array($post_types)) {
+			$post_types[] = 'resource';
+		} else {
+			$post_types = array('post', 'resource');
+		}
+		$query->set('post_type', $post_types);
 	}
 }
 add_action('pre_get_posts', 'include_resources_in_category_pages');
