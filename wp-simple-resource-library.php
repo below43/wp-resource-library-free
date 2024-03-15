@@ -72,9 +72,9 @@ function resource_details_meta_box_markup($object)
 	<br />
 
 	<!--embed code -->
-	<label for="embed-code">Embed Code</label><br />
+	<label for="resource-embed-code">Embed Code</label><br />
 	<i>Alternative option to Resource URL eg. YouTube embed code</i>
-	<textarea name="embed-code" rows="5" class="large-text"><?php echo esc_html(get_post_meta($object->ID, "embed-code", true)); ?></textarea>
+	<textarea name="resource-embed-code" rows="5" class="large-text"><?php echo esc_html(get_post_meta($object->ID, "resource-embed-code", true)); ?></textarea>
 	<br />
 	<br />
 
@@ -143,7 +143,7 @@ function audit_log_meta_box_markup($object)
 function save_resource_metadata($post_id, $post, $update)
 {
 	$meta_boxes = array(
-		'resource-details' => array('resource-url', 'embed-code', 'resource-file'),
+		'resource-details' => array('resource-url', 'resource-embed-code'),
 		'audit-log' => array('created', 'last-updated', 'version', 'last-review-date', 'next-review-date', 'changelog'),
 	);
 
@@ -163,13 +163,12 @@ function save_resource_metadata($post_id, $post, $update)
 			if ($slug != $post->post_type)
 				return $post_id;
 
-			$meta_value = "";
-			if ($field == 'embed-code') {
-				$meta_value = wp_kses_post($_POST[$field]);
-			} else {
+			if ($field=="resource-embed-code") {
+				$meta_value = $_POST[$field];
+			}
+			else {
 				$meta_value = sanitize_text_field($_POST[$field]);
 			}
-
 			update_post_meta($post_id, $field, $meta_value);
 		}
 	}
@@ -235,11 +234,11 @@ function display_resource_shortcode($atts)
 	<!-- if this has embed code then output it below -->
 	<?php
 	$url = get_post_meta(get_the_ID(), 'resource-url', true);
-	$embed_code = get_post_meta(get_the_ID(), 'embed-code', true);
+	$embed_code = get_post_meta(get_the_ID(), 'resource-embed-code', true);
 	if (!empty($url)) {
 		echo '<p><a class="button" href="' . esc_html($url) . '" target="_blank">Open this resource</a></p>';
 	} else if (!empty($embed_code)) {
-		echo '<div class="embed-code">' . $embed_code . '</div>';
+		echo '<div class="resource-embed-code">' . $embed_code . '</div>';
 	} else {
 		echo '<p>No file provided for this resource.</p>';
 	}
