@@ -195,6 +195,12 @@ function display_resources_item_shortcode($atts)
 	if ($post) {
 		$output .= '<h3 class="resource-item"><a href="' . get_permalink() . '">' . get_the_title() . '</a></h3>';
 		$output .= '<p><small>Published: ' . get_the_date() . '</small></p>';
+		$last_updated = get_post_meta(get_the_ID(), 'last-updated', true);
+		if (strpos($last_updated, "-") !== false) {
+            $last_updated = date_i18n('j F Y', strtotime($last_updated));
+		}
+
+		$output .= '<p><small>Last updated: ' . $last_updated . '</small></p>';
 		$output .= '<p>' . get_the_excerpt() . '</p>';
 		$output .= '<a href="' . get_permalink() . '">View more</a>';
 	} else {
@@ -224,9 +230,14 @@ function display_resource_shortcode($atts)
 
 	$post = get_post($atts['id']); // Get the post with the ID from the shortcode attributes
 	setup_postdata($post); // Set up global post data
+	$last_updated = get_post_meta(get_the_ID(), 'last-updated', true);
+	if (!$last_updated) {
+		$last_updated = get_the_date();
+	}
 ?>
 	<h1><?php the_title(); ?></h1>
 	<p>Published: <?php echo get_the_date(); ?><br />
+		Last Updated: <?php echo $last_updated; ?><br />
 		Categories: <?php echo get_the_category_list(', '); ?></p>
 
 	<?php the_excerpt(); ?>
@@ -333,6 +344,10 @@ function display_resources_table_shortcode($atts)
 	$sortby = isset($_GET['sortby']) ? sanitize_text_field($_GET['sortby']) : 'title';
 	$sortorder = isset($_GET['sortorder']) && strtolower(sanitize_text_field($_GET['sortorder'])) == 'desc' ? 'DESC' : 'ASC';
 
+    if ($sortby == 'last-updated') {
+        $args['meta_key'] = 'last-updated';
+    }
+
 	$args = array(
 		'post_type' => 'resource',
 		'posts_per_page' => -1, // Get all posts
@@ -376,7 +391,7 @@ function display_resources_table_shortcode($atts)
 						echo generate_table_header($sortby, $sortorder, $category_name, 'category', 'Category');
 					} ?>
 					<?php echo generate_table_header($sortby, $sortorder, $category_name, 'date', 'Published'); ?>
-					<th class="last-updated">Last&nbsp;Updated</th>
+					<?php echo generate_table_header($sortby, $sortorder, $category_name, 'last-updated', 'Last Updated'); ?>
 					<th class="actions">&nbsp;</th>
 				</tr>
 			</thead>
